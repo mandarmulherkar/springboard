@@ -1,5 +1,5 @@
 ---
-title: "datawrangling_titanic"
+title: "Titanic: ggplot exercise"
 author: "Mandar Mulherkar"
 date: "Apr 2, 2017"
 output: html_document
@@ -9,17 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Titanic data in graphs.
 
 ```{r , echo=FALSE}
 library(ggplot2)
 ```
 
-## Setting up the data frame. Using the file from springboard
+# The dataset was downloaded from kaggle.com.
 
 ```{r}
 # titanic is avaliable in your workspace
@@ -32,6 +28,8 @@ str(titanic)
 # Use ggplot() for the first instruction
 ggplot(titanic, aes(factor(Pclass)), fill = factor(Sex), position = "dodgy") + geom_bar()
 ```
+
+# Using facet_grid.
 
 ```{r}
 # Use ggplot() for the second instruction
@@ -47,9 +45,41 @@ posn.j <- position_jitter(0.5, 0)
 ggplot(titanic, aes(factor(Pclass), Age ,col = factor(Sex)), position = "dodgy") + geom_jitter(size = 3, alpha = 0.5, position = posn.j) + facet_grid(.~Survived)
 ```
 
-# Extras
+## Extras
+
+# Color fill by factor(Sex) per class.
 
 ```{r}
 # Use ggplot() for the first instruction
 ggplot(titanic, aes(factor(Pclass)), position = "dodgy") + geom_bar(aes(fill = factor(Sex))) + facet_grid(.~Survived)
+```
+
+# Facet grid in 2-D, class and factor(Sex)
+
+```{r}
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(factor(Pclass)), position = "dodgy") + geom_bar(aes(fill = factor(Sex))) + facet_grid(factor(Sex)~Survived)
+```
+
+# Facet grid in 2-D, Survival with class and factor(Sex)
+
+```{r}
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(Age, Survived)) + geom_jitter(aes(col = factor(Pclass))) + facet_grid(.~factor(Sex))
+```
+
+# Facet grid in 2-D, Survival with Pclass, Age and Sex
+
+```{r}
+ggplot(titanic, aes(Age, Pclass)) + geom_jitter(aes(col = Pclass)) + facet_grid(Survived~factor(Sex))
+```
+
+# Facet grid, Survival with Pclass, Age and Sex, with age grouped together.
+
+```{r, echo=FALSE}
+titanic$AgeGroups <- cut(titanic$Age, breaks = c(0,20,40,60,80))
+library(dplyr)
+titanic2 <- titanic %>% group_by(AgeGroups)
+str(titanic2)
+ggplot(titanic2, aes(AgeGroups)) + geom_bar(aes(fill = factor(Sex))) + facet_grid(factor(Pclass)~factor(Survived))
 ```
