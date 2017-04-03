@@ -1,0 +1,53 @@
+## Titanic data in graphs.
+library(ggplot2)
+
+# The dataset was downloaded from kaggle.com.
+
+# titanic is avaliable in your workspace
+titanic <- read.csv("titanic.csv", head=TRUE,sep=",")
+# Check out the structure of titanic
+str(titanic)
+
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(factor(Pclass)), fill = factor(Sex), position = "dodgy") + geom_bar()
+
+# Using facet_grid.
+
+# Use ggplot() for the second instruction
+ggplot(  titanic, aes(factor(Pclass)), fill = factor(Sex), position = "dodgy") + geom_bar() + facet_grid(.~Survived)
+
+# Position jitter (use below)
+posn.j <- position_jitter(0.5, 0)
+
+# Use ggplot() for the last instruction
+ggplot(titanic, aes(factor(Pclass), Age ,col = factor(Sex)), position = "dodgy") + geom_jitter(size = 3, alpha = 0.5, position = posn.j) + facet_grid(.~Survived)
+
+## Extras
+
+# Color fill by factor(Sex) per class.
+
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(factor(Pclass)), position = "dodgy") + geom_bar(aes(fill = factor(Sex))) + facet_grid(.~Survived)
+
+# Facet grid in 2-D, class and factor(Sex)
+
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(factor(Pclass)), position = "dodgy") + geom_bar(aes(fill = factor(Sex))) + facet_grid(factor(Sex)~Survived)
+
+# Facet grid in 2-D, Survival with class and factor(Sex)
+
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(Age, Survived)) + geom_jitter(aes(col = factor(Pclass))) + facet_grid(.~factor(Sex))
+
+# Facet grid in 2-D, Survival with Pclass, Age and Sex
+
+ggplot(titanic, aes(Age, Pclass)) + geom_jitter(aes(col = Pclass)) + facet_grid(Survived~factor(Sex))
+
+# Facet grid, Survival with Pclass, Age and Sex, with age grouped together.
+
+titanic$AgeGroups <- cut(titanic$Age, breaks = c(0,20,40,60,80))
+library(dplyr)
+titanic2 <- titanic %>% group_by(AgeGroups)
+str(titanic2)
+ggplot(titanic2, aes(AgeGroups)) + geom_bar(aes(fill = factor(Sex))) + facet_grid(factor(Pclass)~factor(Survived))
+
