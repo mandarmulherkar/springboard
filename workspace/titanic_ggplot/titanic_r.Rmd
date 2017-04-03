@@ -1,0 +1,55 @@
+---
+title: "datawrangling_titanic"
+author: "Mandar Mulherkar"
+date: "Apr 2, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r , echo=FALSE}
+library(ggplot2)
+```
+
+## Setting up the data frame. Using the file from springboard
+
+```{r}
+# titanic is avaliable in your workspace
+titanic <- read.csv("titanic.csv", head=TRUE,sep=",")
+# Check out the structure of titanic
+str(titanic)
+```
+
+```{r}
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(factor(Pclass)), fill = factor(Sex), position = "dodgy") + geom_bar()
+```
+
+```{r}
+# Use ggplot() for the second instruction
+ggplot(  titanic, aes(factor(Pclass)), fill = factor(Sex), position = "dodgy") + geom_bar() + facet_grid(.~Survived)
+```
+
+```{r}
+
+# Position jitter (use below)
+posn.j <- position_jitter(0.5, 0)
+
+# Use ggplot() for the last instruction
+ggplot(titanic, aes(factor(Pclass), Age ,col = factor(Sex)), position = "dodgy") + geom_jitter(size = 3, alpha = 0.5, position = posn.j) + facet_grid(.~Survived)
+```
+
+# Extras
+
+```{r}
+# Use ggplot() for the first instruction
+ggplot(titanic, aes(factor(Pclass)), position = "dodgy") + geom_bar(aes(fill = factor(Sex))) + facet_grid(.~Survived)
+```
