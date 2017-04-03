@@ -76,7 +76,7 @@ ggplot(titanic, aes(Age, Pclass)) + geom_jitter(aes(col = Pclass)) + facet_grid(
 
 # Facet grid, Survival with Pclass, Age and Sex, with age grouped together.
 
-```{r, echo=FALSE}
+```{r}
 titanic$AgeGroups <- cut(titanic$Age, breaks = c(0,20,40,60,80))
 library(dplyr)
 titanic2 <- titanic %>% group_by(AgeGroups)
