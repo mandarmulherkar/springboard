@@ -1,0 +1,80 @@
+---
+title: "Springboard data wrangling exercise 1"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(readr)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+```{r}
+original <- read_csv("refine_original.csv")
+# http://rprogramming.net/rename-columns-in-r/
+colnames(original)[colnames(original) == 'Product code / number'] <- "product_code_number"
+```
+
+```{r}
+# Make all the names lower case in the column, use lapply.
+original$company <- lapply(original$company, tolower)
+
+# Apply gsub to correct names for philips.
+original$company <- gsub(".*(ips|phi).*", "philips", original$company)
+# Apply gsub to correct names for akzo
+original$company <- gsub(".*(z|ak).*", "akzo", original$company)
+# Apply gsub to correct names for unilever.
+original$company <- gsub(".*(uni|lev).*", "unilever", original$company)
+# Apply gsub to correct names for van houten.
+original$company <- gsub(".*(van|hou).*", "van houten", original$company)
+
+# factor(original$company)
+# Output
+# Levels: akzo philips unilever van houten
+```
+
+```{r}
+# Separate the product code and number.
+# https://blog.rstudio.org/2014/07/22/introducing-tidyr/
+original_new_cols <- original %>%
+  separate(product_code_number, into = c("product_code", "product_number"), sep = "-")
+```
+
+```{r}
+# Add product categories
+original_new_cols$product_code <- gsub("^p$", "Smartphone", original_new_cols$product_code)
+original_new_cols$product_code <- gsub("^v$", "TV", original_new_cols$product_code)
+original_new_cols$product_code <- gsub("^x$", "Laptop", original_new_cols$product_code)
+original_new_cols$product_code <- gsub("^q$", "Tablet", original_new_cols$product_code)
+```
+
+```{r}
+original_new_cols <- original_new_cols %>% unite(full_address, address, city, country, sep = ",")
+```
+
+```{r}
+# Add four binary (1 or 0) columns for company: company_philips, company_akzo, company_van_houten and company_unilever.
+original_new_cols <- original_new_cols %>% mutate(company_philips = as.numeric(original_new_cols$company == "philips"), company_akzo = as.numeric(original_new_cols$company == "akzo"), company_van_houten = as.numeric(original_new_cols$company == "van houten"), company_unilever = as.numeric(original_new_cols$company == "unilever"))
+```
+
+```{r}
+# Add four binary (1 or 0) columns for product category: product_smartphone, product_tv, product_laptop and product_tablet.
+original_new_cols <- original_new_cols %>%
+  mutate(product_smartphone = as.numeric(original_new_cols$product_code == "Smartphone"),
+         product_tv = as.numeric(original_new_cols$product_code == "TV"),
+         product_laptop = as.numeric(original_new_cols$product_code == "Laptop"),
+         product_tablet = as.numeric(original_new_cols$product_code == "Tablet"))
+str(original_new_cols)
+```
+```{r}
+write.csv(original_new_cols, file = "refine_clean.csv")
+```
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
