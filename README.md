@@ -1,2 +1,2 @@
 # springboard
-Directory with projects from the springboard course.
+Directories with springboard exercises and material
