@@ -1,0 +1,51 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+flower = read.csv("flower.csv", header = FALSE)
+str(flower)
+flowerMatrix = as.matrix(flower)
+str(flowerMatrix)
+
+flowerVector = as.vector(flowerMatrix)
+str(flowerVector)
+
+flowerVector2 = as.vector(flower)
+str(flowerVector2)
+```
+
+```{r}
+# Distances
+
+distance = dist(flowerVector, method = "euclidean")
+clusterIntensity = hclust(distance, method = "ward")
+plot(clusterIntensity)
+
+# Determine clusters.
+rect.hclust(clusterIntensity, 3, border="red")
+flowerClusters = cutree(clusterIntensity, k=3)
+flowerClusters
+tapply(flowerVector, flowerClusters, mean)
+```
+
+```{r}
+# Output the image
+dim(flowerClusters) = c(50, 50)
+
+# Segmented image
+image(flowerClusters, axes = FALSE)
+
+# Original Image.
+image(flowerMatrix, axes = FALSE, col = grey(seq(0, 1, length=256)))
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).

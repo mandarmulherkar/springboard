@@ -1,0 +1,62 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+# Read the healthy data set.
+
+healthy = read.csv("healthy.csv", header = FALSE)
+healthyMatrix = as.matrix(healthy)
+str(healthyMatrix)
+```
+```{r}
+# Display the image.
+image(healthyMatrix, axes = FALSE, col = grey(seq(0, 1, length = 256)))
+```
+```{r}
+# Hierarchical clustering
+healthyVector = as.vector(healthyMatrix)
+# The image is too high res, distances are n * (n - 1) / 2 for about 365K points.
+# distance = dist(healthyVector, method = "euclidean")
+```
+
+```{r}
+k = 5
+set.seed(1)
+KMC = kmeans(healthyVector, centers = k, iter.max = 1000)
+str(KMC)
+healthyClusters = KMC$cluster
+KMC$centers[2]
+
+# Output a colored image.
+dim(healthyClusters) = c(nrow(healthyMatrix), ncol(healthyMatrix))
+image(healthyClusters, axes = FALSE, col = rainbow(k))
+```
+
+```{r}
+# Read the tumor file.
+tumor = read.csv("tumor.csv", header = FALSE)
+tumorMatrix = as.matrix(tumor)
+tumorVector = as.vector(tumorMatrix)
+```
+
+```{r}
+install.packages("flexclust")
+library(flexclust)
+
+KMC.kcca = as.kcca(KMC, healthyVector)
+```
+
+```{r}
+tumorClusters = predict(KMC.kcca, newdata = tumorVector)
+dim(tumorClusters) = c(nrow(tumorMatrix), ncol(tumorMatrix))
+image(tumorClusters, axes = FALSE, col = rainbow(k))
+
+```
+
+
