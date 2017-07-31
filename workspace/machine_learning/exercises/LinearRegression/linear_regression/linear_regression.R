@@ -94,7 +94,7 @@ methods(class = class(sat.mod))[1:9]
 ##   • Use function methods to get more information about the fit
 
 confint(sat.mod)
-# hist(residuals(sat.mod))
+hist(residuals(sat.mod))
 
 ## Linear Regression Assumptions
 ## ─────────────────────────────────
@@ -133,33 +133,39 @@ coef(summary(sat.voting.mod))
 ##   2. Print and interpret the model `summary'
 ##   3. `plot' the model to look for deviations from modeling assumptions
 
+## • Exercise Solutions
+##   1. Examine/plot the data before fitting the model
+# summary of expense and csat columns, all rows
+sts.en.met <- subset(states.data, select = c("energy", "metro"))
+summary(sts.en.met)
+plot(sts.en.met)
+# correlation between energy and metro
+cor(sts.en.met, use="pairwise")
+
+##   2. Print and interpret the model `summary'
+# Fit our regression model
+mod.en.met <- lm(energy ~ metro, # regression formula
+              data=states.data) # data set
+# Summarize and print the results
+summary(mod.en.met) # show regression coefficients table
+
+##   3. `plot' the model to look for deviations from modeling assumptions
+plot(mod.en.met)
+# points 2, 51, 19 look like outliers.
+
 ##   Select one or more additional predictors to add to your model and
 ##   repeat steps 1-3. Is this model significantly better than the model
 ##   with /metro/ as the only predictor?
-metro.mod1 <- lm(energy ~ green + metro + area + region + income, data = states.data)
-# Coefficients:
-# Estimate Std. Error t value Pr(>|t|)    
-# (Intercept)    2.179e+02  9.453e+01   2.305   0.0264 *  
-#  green          5.222e+00  7.076e-01   7.380 5.57e-09 ***
-#  metro          5.520e-01  7.013e-01   0.787   0.4359    
-#  area           4.797e-04  2.929e-04   1.638   0.1093    
-#  regionN. East  1.626e+01  4.211e+01   0.386   0.7015    
-#  regionSouth    5.755e+01  3.322e+01   1.732   0.0910 .  
-#  regionMidwest  8.894e+00  3.225e+01   0.276   0.7841    
-#  income        -2.847e+00  2.912e+00  -0.978   0.3341    
-#  ---
-#  Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-# Residual standard error: 70.31 on 40 degrees of freedom
-# (3 observations deleted due to missingness)
-# Multiple R-squared:  0.6924,	Adjusted R-squared:  0.6386 
-# F-statistic: 12.86 on 7 and 40 DF,  p-value: 1.606e-08
-
-# states data, linear model.
-plot(energy, metro)
-plot(metro.mod1)
-
-metro.mod <- lm(energy ~ metro, data = states.data)
+# summary of expense and csat columns, all rows
+sts.en.met.pop.waste <- subset(states.data, select = c("energy", "metro", "pop", "waste"))
+summary(sts.en.met.pop.waste)
+plot(sts.en.met.pop.waste)
+# correlation between expense and csat
+cor(sts.en.met.pop.waste, use = "pairwise")
+mod.en.met.pop.waste <- lm(energy ~ metro + pop + waste, data = states.data)
+summary(mod.en.met.pop.waste)
+anova(mod.en.met, mod.en.met.pop.waste)
 
 ## Interactions and factors
 ## ══════════════════════════
@@ -225,5 +231,11 @@ coef(summary(lm(csat ~ C(region, contr.helmert),
 ##   1. Add on to the regression equation that you created in exercise 1 by
 ##      generating an interaction term and testing the interaction.
 
+mod.en.metro.by.waste <- lm(energy ~ metro * waste, data = states.data)
+coef(summary(mod.en.metro.by.waste)) # show regression coefficients table
+
 ##   2. Try adding region to the model. Are there significant differences
 ##      across the four regions?
+
+mod.en.region <- lm(energy ~ metro * waste + region, data = states.data)
+anova(mod.en.region)
