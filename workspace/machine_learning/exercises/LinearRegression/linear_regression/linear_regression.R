@@ -33,6 +33,7 @@ states.info <- data.frame(attributes(states.data)[c("names", "var.labels")])
 #look at last few labels
 tail(states.info, 8)
 
+View(states.data)
 ## Linear regression
 ## ═══════════════════
 

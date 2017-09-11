@@ -26,7 +26,7 @@
 
 NH11 <- readRDS("dataSets/NatHealth2011.rds")
 labs <- attributes(NH11)$labels
-
+labs
 ##   [CDC website] http://www.cdc.gov/nchs/nhis.htm
 
 ## Logistic regression example
@@ -75,6 +75,7 @@ predDat <- with(NH11,
                             sex = "2 Female",
                             bmi = mean(bmi, na.rm = TRUE),
                             sleep = mean(sleep, na.rm = TRUE)))
+predDat
 # predict hypertension at those levels
 cbind(predDat, predict(hyp.out, type = "response",
                        se.fit = TRUE, interval="confidence",
@@ -89,7 +90,7 @@ cbind(predDat, predict(hyp.out, type = "response",
 
 ##   Instead of doing all this ourselves, we can use the effects package to
 ##   compute quantities of interest for us (cf. the Zelig package).
-
+install.packages("effects")
 library(effects)
 plot(allEffects(hyp.out))
 
@@ -106,3 +107,10 @@ plot(allEffects(hyp.out))
 ##   Note that the data is not perfectly clean and ready to be modeled. You
 ##   will need to clean up at least some of the variables before fitting
 ##   the model.
+
+nh11.wrk.age.mar <- subset(NH11, select = c("everwrk", "age_p", "r_maritl"))
+summary(nh11.wrk.age.mar)
+
+
+
+
