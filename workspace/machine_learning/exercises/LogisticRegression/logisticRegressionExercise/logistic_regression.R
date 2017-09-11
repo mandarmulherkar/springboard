@@ -111,6 +111,3 @@ plot(allEffects(hyp.out))
 nh11.wrk.age.mar <- subset(NH11, select = c("everwrk", "age_p", "r_maritl"))
 summary(nh11.wrk.age.mar)
 
-
-
-
