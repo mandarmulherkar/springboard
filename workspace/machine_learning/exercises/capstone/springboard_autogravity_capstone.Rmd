@@ -1,0 +1,1353 @@
+---
+title: "Springboard Capstone Project"
+author: "Mandar Mulherkar"
+date: "September 1, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Analysis of the Behavioral and Business Patterns in the AutoGravity datasets
+#### by Mandar Mulherkar
+
+## Logistic Regression for Approval or Decline. 
+
+```{r}
+library(plyr)
+
+# Read the data
+dp.loan.fico = read.csv("data/fico_income_20k_predict_rate.csv", header = TRUE)
+str(dp.loan.fico)
+dp.loan.fico$fico_score <- as.numeric(dp.loan.fico$fico_score)
+summary(dp.loan.fico)
+```
+
+```{r}
+# Separate into training and test
+require(caTools)
+
+# 75% of the sample size
+smp_size <- floor(0.75 * nrow(dp.loan.fico))
+# set the seed to make your partition reproductible
+set.seed(5432)
+train_ind <- sample(seq_len(nrow(dp.loan.fico)), size = smp_size)
+train_fico <- dp.loan.fico[train_ind, ]
+test_fico <- dp.loan.fico[-train_ind, ]
+
+train_fico$income <- as.numeric(train_fico$income)
+test_fico$income <- as.numeric(test_fico$income)
+
+train_fico$fico_score <- as.numeric(train_fico$fico_score)
+test_fico$fico_score <- as.numeric(test_fico$fico_score)
+
+train_fico$monthly_payment <- as.numeric(train_fico$monthly_payment)
+test_fico$monthly_payment <- as.numeric(test_fico$monthly_payment)
+
+train_fico$state <- factor(train_fico$state)
+test_fico$state <- factor(test_fico$state)
+
+train_fico$lender_code <- factor(train_fico$lender_code)
+test_fico$lender_code <- factor(test_fico$lender_code)
+
+train_fico$fico_score_normal <- train_fico$fico_score / 600
+test_fico$fico_score_normal <- test_fico$fico_score / 600
+
+train_fico$income_normal <- train_fico$income / 10000
+test_fico$income_normal <- test_fico$income / 10000
+
+str(train_fico)
+str(test_fico)
+```
+
+
+```{r}
+mod.rate.no.fico = lm(rate ~ age + state + lender_code + monthly_payment + terms + income, data = train_fico)
+summary(mod.rate.no.fico)
+
+mod.rate.1 = lm(rate ~ age + state + monthly_payment + terms + income, data = train_fico)
+summary(mod.rate.1)
+
+#mod.rate = lm(rate ~ state + lender_code + monthly_payment + terms + income_normal + fico_score_normal, data = train_fico)
+#summary(mod.rate)
+
+mod.rate = lm(rate ~ lender_code + monthly_payment + terms + income_normal + fico_score + age + state, data = train_fico)
+summary(mod.rate)
+```
+
+```{r}
+SSE = sum(mod.rate$residuals^2)
+# SSE is 56043.84
+SSE
+
+SSE = sum(mod.rate.no.fico$residuals^2)
+# SSE is 67475.12
+SSE
+```
+
+```{r}
+# Correlations - fico_score ~ down_payment, data = dp.loan.fico
+cor(train_fico$rate, train_fico$fico_score)
+cor(train_fico$rate, train_fico$income)
+cor(train_fico)
+```
+
+```{r}
+library(dplyr)
+
+str(appdec$decision_status) # check stucture of hypev
+levels(appdec$decision_status) # check levels of hypev
+levels(appdec$state)
+levels(appdec$lender_code)
+appdec$lender_code <- factor(appdec$lender_code)
+
+# Use
+# collapse all missing values to NA
+appdec <- read.csv("data/u2dappdec.csv", header = TRUE)
+appdec$decision_status <- factor(appdec$decision_status, levels=c("APPROVED", "DECLINED"))
+appdec$decision_binary <- ifelse(appdec$decision_status == "APPROVED", 1, 0)
+
+# run our regression model
+install.packages("aod")
+library(aod)
+wald.test(b = coef(hyp.out), Sigma = vcov(hyp.out), Terms = 1:1)
+
+require(caTools)
+# 75% of the sample size
+smp_size <- floor(0.75 * nrow(appdec))
+# set the seed to make your partition reproductible
+set.seed(324)
+train_ind <- sample(seq_len(nrow(appdec)), size = smp_size)
+train_dec <- appdec[train_ind, ]
+test_dec <- appdec[-train_ind, ]
+```
+
+```{r}
+# Check the distribution
+sum(train_dec["decision_status"] == "APPROVED")/sum(train_dec["decision_status"] == "DECLINED")
+sum(test_dec["decision_status"] == "APPROVED")/sum(test_dec["decision_status"] == "DECLINED")
+trControl <- trainControl(method = "repeatedcv",  repeats = 5, number = 10, verboseIter = FALSE)
+```
+
+```{r}
+appdec$decision_binary <- as.factor(appdec$decision_binary)
+mod_fit <- train(decision_binary ~ age + income + fico_score + monthly_payment + 
+                   max_loan_amount,  data=train_dec, method="glm", family="binomial")
+exp(coef(mod_fit$finalModel))
+```
+
+```{r}
+# Without state
+predictors_sep22_no_state <- c("fico_score",  "income", "fico_group", "monthly_payment", "age", "platform_binary_1_android", "max_loan_amount", "terms", "dealer_zip")
+formula_sep22_no_state <- as.formula(paste("decision_status", paste(predictors_sep22_no_state, collapse="+"), sep="~"))
+mod_fit_sep22_no_state <- train(formula_sep22_no_state,  data=train_dec, method="glm", 
+                       family="binomial", trControl = trControl, metric = 'Accuracy')
+mod_fit_sep22_no_state$results$Accuracy
+exp(coef(mod_fit_sep22_no_state$finalModel))
+
+# With state
+predictors_sep22 <- c("fico_score",  "income", "fico_group", "monthly_payment", "age", "state")
+formula_sep22 <- as.formula(paste("decision_status", paste(predictors_sep22, collapse="+"), sep="~"))
+mod_fit_sep22 <- train(formula_sep22,  data=train_dec, method="glm", 
+                       family="binomial", trControl = trControl, metric = 'Accuracy')
+mod_fit_sep22$results$Accuracy
+exp(coef(mod_fit_sep22$finalModel))
+```
+
+```{r}
+mod_fit_one <- glm(decision_binary ~ age + income + monthly_payment + 
+                   max_loan_amount + dealer_zip, data=train_dec, family="binomial")
+
+mod_fit_two <- glm(decision_binary ~ age + income + state + fico_score + monthly_payment + 
+                   max_loan_amount, data=train_dec, family="binomial")
+
+mod_fit_zipcode <- glm(decision_binary ~ dealer_zip, data=train_dec, family="binomial")
+mod_fit_misc <- glm(decision_binary ~ age, data=train_dec, family="binomial")
+anova(mod_fit_one, mod_fit_two, test ="Chisq")
+sjp.glm(mod_fit_misc, type = "slope")
+sjp.glm(mod_fit_two, type = "slope")
+```
+
+```{r}
+library(lmtest)
+lrtest(mod_fit_one, mod_fit_two)
+```
+
+```{r}
+library(pscl)
+pR2(mod_fit_one)  # look for 'McFadden' high McFadden is better (0 - 1)
+pR2(mod_fit_two)  # look for 'McFadden'
+```
+
+```{r}
+library(survey)
+regTermTest(mod_fit_two, "fico_score")
+```
+
+```{r}
+regTermTest(mod_fit_one, "income")
+```
+
+```{r}
+regTermTest(mod_fit_one, "dealer_zip")
+```
+
+```{r}
+appdec$decision_binary <- as.factor(appdec$decision_binary)
+```
+
+```{r}
+mod_fit_one_train <- train(decision_binary ~ age + income + monthly_payment + max_loan_amount + dealer_zip, data=train_dec, method="glm", family="binomial")
+exp(coef(mod_fit_one_train$finalModel))
+
+mod_fit_two_train <- train(decision_binary ~ age + income + state + fico_score + monthly_payment + max_loan_amount, data=train_dec, method="glm", family="binomial")
+exp(coef(mod_fit_two_train$finalModel))
+```
+
+```{r}
+varImp(mod_fit_one_train)
+varImp(mod_fit_two_train)
+```
+
+```{r}
+library(pROC)
+# Compute AUC for predicting Decision with FICO
+f1 = roc(decision_binary ~ fico_score, data=train_dec) 
+f1
+plot(f1, col="red")
+```
+
+```{r}
+library(pROC)
+# Compute AUC for predicting Decision with the variable Income
+f2 = roc(decision_binary ~ income, data=train_dec)
+f2
+plot(f2, col="red")
+```
+
+```{r}
+library(pROC)
+# Compute AUC for predicting Decision with FICO
+f3 = roc(decision_binary ~ dealer_zip, data=train_dec) 
+f3
+plot(f3, col="red")
+```
+
+```{r}
+library(pROC)
+# Compute AUC for predicting Decision with multiple variables
+mod1<-glm(decision_binary ~ age + income + fico_score + monthly_payment + state, data=train_dec, family="binomial")  #Logistic regression model
+auc(decision_binary ~ predict(mod1), data=train_dec)  #Compute AUC for predicting case with your model
+f4 <- roc(decision_binary ~ predict(mod1), data=train_dec)  #Compute AUC for predicting case with your model
+f4
+plot(f4, col="red")
+```
+
+
+```{r}
+library(ROCR)
+# Compute AUC for predicting Class with the model
+prob <- predict(mod_fit_one, newdata=test_dec, type="response")
+pred <- prediction(prob, test_dec$decision_binary)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf)
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+# [1] 0.738535
+```
+
+```{r}
+# Compute AUC for predicting Class with the model
+prob <- predict(mod_fit_two, newdata=test_dec, type="response")
+pred <- prediction(prob, test_dec$decision_binary)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf)
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+# [1] 0.8225081
+```
+
+```{r}
+mod_fit_three <- glm(decision_binary ~ age + income + state + fico_score + monthly_payment, data=train_dec, family="binomial")
+# Compute AUC for predicting Class with the model
+prob <- predict(mod_fit_three, newdata=test_dec, type="response")
+pred <- prediction(prob, test_dec$decision_binary)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf)
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+
+# [1] 0.8240299
+```
+
+```{r}
+# Compute AUC for predicting Class with the model
+prob <- predict(mod_fit_two, newdata=test_dec, type="response")
+pred <- prediction(prob, test_dec$decision_binary)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf)
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+# [1] 0.8225081
+```
+
+```{r}
+library(ROCR)
+# Compute AUC for predicting Class with the model
+prob <- predict(mod_fit_zipcode, newdata=test_dec, type="response")
+pred <- prediction(prob, test_dec$decision_binary)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf)
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+# [1] 0.4597081
+```
+
+```{r}
+hyp.out <- glm(decision_binary~income+monthly_payment+loan_amount+state+fico_score,
+              data=train_dec, family="binomial")
+
+test_dec$decision_prob <- predict(hyp.out, newdata = test_dec, type = "response")
+test_dec
+write.csv(test_dec, file = "testappdec_fico.csv")
+getwd()
+```
+
+```{r}
+appdec_prob <- glm(decision_binary ~ income + monthly_payment + (loan_amount-down_payment) + (down_payment/loan_amount) + state + fico_score + age + is_used_vehicle + terms, data=train_dec, family="binomial")
+
+test_dec$decision_prob <- predict(appdec_prob, newdata = test_dec, type = "response")
+write.csv(test_dec, file = "testappdec_fico_1.csv")
+```
+
+```{r}
+predicted_approved_rows = nrow(test_dec[test_dec$decision_prob > 0.85,])
+predicted_approved_rows
+# [1] 14
+approved <- test_dec[test_dec$decision_prob > 0.85,]
+actual_approved_rows = nrow(approved[approved$decision_status == "APPROVED",])
+actual_approved_rows
+# [1] 12
+
+# % matching prediction
+actual_approved_rows/predicted_approved_rows * 100
+# [1] 85.71429
+```
+
+```{r}
+predicted_approved_rows_75 = nrow(test_dec[test_dec$decision_prob > 0.75,])
+predicted_approved_rows_75
+# [1] 27
+approved_75 <- test_dec[test_dec$decision_prob > 0.75,]
+actual_approved_rows_75 = nrow(approved_75[approved_75$decision_status == "APPROVED",])
+actual_approved_rows_75
+# [1] 23
+
+# % matching prediction
+actual_approved_rows_75/predicted_approved_rows_75 * 100
+# [1] 85.18519
+
+p75 <- ggplot(approved_75, aes(decision_status))
+p75 + geom_bar(aes(fill = decision_status))
+```
+
+### Linear regression for interest rate prediction.
+```{r}
+library(plyr)
+
+# Read the data
+dp.loan.fico = read.csv("data/fico_income_20k_predict_rate.csv", header = TRUE)
+str(dp.loan.fico)
+dp.loan.fico$fico_score <- as.numeric(dp.loan.fico$fico_score)
+summary(dp.loan.fico)
+```
+
+```{r}
+# Separate into training and test
+require(caTools)
+
+# 75% of the sample size
+smp_size <- floor(0.75 * nrow(dp.loan.fico))
+# set the seed to make your partition reproductible
+set.seed(5432)
+train_ind <- sample(seq_len(nrow(dp.loan.fico)), size = smp_size)
+train_fico <- dp.loan.fico[train_ind, ]
+test_fico <- dp.loan.fico[-train_ind, ]
+
+train_fico$income <- as.numeric(train_fico$income)
+test_fico$income <- as.numeric(test_fico$income)
+
+train_fico$fico_score <- as.numeric(train_fico$fico_score)
+test_fico$fico_score <- as.numeric(test_fico$fico_score)
+
+train_fico$monthly_payment <- as.numeric(train_fico$monthly_payment)
+test_fico$monthly_payment <- as.numeric(test_fico$monthly_payment)
+
+train_fico$state <- factor(train_fico$state)
+test_fico$state <- factor(test_fico$state)
+
+train_fico$lender_code <- factor(train_fico$lender_code)
+test_fico$lender_code <- factor(test_fico$lender_code)
+
+train_fico$fico_score_normal <- train_fico$fico_score / 600
+test_fico$fico_score_normal <- test_fico$fico_score / 600
+
+train_fico$income_normal <- train_fico$income / 10000
+test_fico$income_normal <- test_fico$income / 10000
+
+str(train_fico)
+str(test_fico)
+```
+
+
+```{r}
+# Build models
+#mod.fico.income = lm(fico_score ~ platform + down_payment + monthly_payment + income, data = train_fico)
+#summary(mod.fico.income)
+
+# Build models
+
+
+#Add region to the model
+#rate.state <- lm(rate ~ state,
+#                 data=creditapp.data)
+#Show the results
+#coef(summary(rate.state)) # show regression coefficients table
+#anova(rate.state) # show ANOVA table
+# make sure R knows region is categorical
+#Add region to the model
+#rate.lender_code <- lm(rate ~ lender_code,
+#                 data=creditapp.data)
+
+
+mod.rate.no.fico = lm(rate ~ age + state + lender_code + monthly_payment + terms + income, data = train_fico)
+summary(mod.rate.no.fico)
+
+mod.rate.1 = lm(rate ~ age + state + monthly_payment + terms + income, data = train_fico)
+summary(mod.rate.1)
+
+#mod.rate = lm(rate ~ state + lender_code + monthly_payment + terms + income_normal + fico_score_normal, data = train_fico)
+#summary(mod.rate)
+
+mod.rate = lm(rate ~ lender_code + monthly_payment + terms + income_normal + fico_score + age + state, data = train_fico)
+summary(mod.rate)
+```
+
+```{r}
+SSE = sum(mod.rate$residuals^2)
+# SSE is 56043.84
+SSE
+
+SSE = sum(mod.rate.no.fico$residuals^2)
+# SSE is 67475.12
+SSE
+```
+
+```{r}
+# Correlations - fico_score ~ down_payment, data = dp.loan.fico
+cor(train_fico$rate, train_fico$fico_score)
+cor(train_fico$rate, train_fico$income)
+cor(train_fico)
+```
+
+```{r}
+# Predict rate without FICO
+# Predictions
+plot(mod.rate)
+predictTest = predict(mod.rate.no.fico, newdata = test_fico)
+plot(predictTest)
+write.csv(predictTest, file = "predictRateNoFicoSep22.csv")
+write.csv(test_fico, file = "testRateNoFicoSep22.csv")
+SSE = sum((test_fico$rate - predictTest)^2)
+SST = sum((test_fico$rate - mean(test_fico$fico_score))^2)
+1 - SSE / SST
+
+# Predictions
+plot(test_fico)
+predictTestFico = predict(mod.rate, newdata = test_fico)
+plot(predictTestFico)
+write.csv(predictTestFico, file = "predictRateFicoSep22.csv")
+write.csv(test_fico, file = "testRateFicoSep22.csv")
+SSE = sum((test_fico$rate - predictTest)^2)
+SST = sum((test_fico$rate - mean(test_fico$fico_score))^2)
+1 - SSE / SST
+
+```
+
+```{r}
+# Try predicting for all, and see how the same customer compares.
+appdec_all <- read.csv("data/fico_income_20k_predict_rate.csv", header = TRUE)
+appdec_all$rate <- as.numeric(appdec_all$rate)
+
+approved_rows = as.data.frame(appdec_all[appdec_all$decision_status == "APPROVED",])
+pRate <- ggplot(approved_rows, aes(lender_code_general, rate))
+pRate + geom_boxplot()
+
+# Separate into training and test
+require(caTools)
+
+# First try to predict the max_loan_amount. Use a small sample.
+# 30% of the sample size
+smp_size_max_loan_amount <- floor(0.30 * nrow(appdec_all))
+# set the seed to make your partition reproductible
+set.seed(435)
+train_ind_max_loan_amount <- sample(seq_len(nrow(appdec_all)), size = smp_size)
+train_fico_max_loan_amount <- appdec_all[train_ind_max_loan_amount, ]
+test_fico_max_loan_amount <- appdec_all[-train_ind_max_loan_amount, ]
+
+mod.rate.predict.max.loan.amount = lm(max_loan_amount ~ age + state + monthly_payment + terms + income + fico_score + loan_amount + lender_code, data = train_fico_max_loan_amount)
+# Adjusted R-squared is lower than when we separate out the lenders.
+summary(mod.rate.predict.max.loan.amount)
+
+# Predictions
+predictTestAllMaxLoanAmount = predict(mod.rate.predict.max.loan.amount, newdata = test_fico_max_loan_amount)
+plot(predictTestAllMaxLoanAmount)
+write.csv(predictTestAllMaxLoanAmount, file = "predictRateAllMaxLoanAmount.csv")
+write.csv(test_fico_max_loan_amount, file = "testRateAllMaxLoanAmount.csv")
+
+# Above, we predicted the various max loan amount that a customer will likely be approved for, per lender.
+# Performing some joins in the csv files, ane renaming the columns,
+# we have the predicted rates joined in the spreadsheet, "testRateAllMaxLoanAmount.csv"
+
+# Try predicting the rate after predicting the max loan amount.
+appdec_all_max_loan <- read.csv("testRateAllMaxLoanAmount.csv", header = TRUE)
+appdec_all_max_loan <- as.data.frame(appdec_all_max_loan)
+
+# 75% of the sample size
+# set the seed to make your partition reproductible
+set.seed(3651)
+smp_size_max_loan_predicted <- floor(0.75 * nrow(appdec_all_max_loan))
+train_ind_after_max_loan <- sample(seq_len(nrow(appdec_all_max_loan)), size = smp_size_max_loan_predicted)
+train_fico_after_max_loan <- appdec_all_max_loan[train_ind_after_max_loan, ]
+test_fico_after_max_loan <- appdec_all_max_loan[-train_ind_after_max_loan, ]
+
+mod.rate.after.max.loan = lm(rate ~ age + state + monthly_payment + terms + income + fico_score + predicted_max_loan_amount + lender_code, data = train_fico_after_max_loan)
+# Adjusted R-squared is lower than when we separate out the lenders.
+summary(mod.rate.after.max.loan)
+
+# Predictions
+# Error, factor has new levels "MS, OK" (for the given seed).
+test_fico_after_max_loan <- test_fico_after_max_loan[ ! test_fico_after_max_loan$state == "MS", ]
+test_fico_after_max_loan <- test_fico_after_max_loan[ ! test_fico_after_max_loan$state == "OK", ]
+nrow(test_fico_after_max_loan[test_fico_after_max_loan$state == "MS", ])
+nrow(test_fico_after_max_loan[test_fico_after_max_loan$state == "OK", ])
+
+predictTestAllAfterMaxLoan = predict(mod.rate.after.max.loan, newdata = test_fico_after_max_loan)
+plot(predictTestAllAfterMaxLoan)
+
+write.csv(predictTestAllAfterMaxLoan, file = "predictRateAllAfterMaxLoan.csv")
+write.csv(test_fico_after_max_loan, file = "testRateAllAfterMaxLoan.csv")
+
+answer <- left_join(test_fico, predictTestAllAfterMaxLoan)
+write.csv(answer, file = "answer.csv")
+
+par(mfrow=c(2, 2))
+plot(mod.rate.after.max.loan)
+```
+
+```{r}
+mod.rate.3 = lm(rate ~ age + state + monthly_payment + terms + income + fico_score + loan_amount + lender_code, data = train_fico)
+# Adjusted R-squared is lower than when we separate out the lenders.
+summary(mod.rate.3)
+
+par(mfrow=c(2, 2))
+plot(mod.rate.3)
+```
+
+```{r}
+# Predictions
+plot(test_fico)
+predictTestAll= predict(mod.rate.3, newdata = test_fico)
+plot(predictTestAll)
+write.csv(predictTestAll, file = "predictRateAll.csv")
+write.csv(test_fico, file = "testRateAll.csv")
+
+
+mod.rate.4 = lm(rate ~ age + state + monthly_payment + terms + income + fico_score + loan_amount + lender_code + max_loan_amount, data = train_fico)
+# Adjusted R-squared is lower than when we separate out the lenders.
+summary(mod.rate.4)
+
+# Predictions
+plot(test_fico)
+predictTestAllMaxLoan = predict(mod.rate.4, newdata = test_fico)
+plot(predictTestAllMaxLoan)
+write.csv(predictTestAllMaxLoan, file = "predictRateAllMaxLoan.csv")
+write.csv(test_fico, file = "testRateAllMaxLaon.csv")
+
+par(mfrow=c(2, 2))
+plot(mod.rate.4)
+```
+
+
+
+```{r}
+getwd()
+appdec_all <- read.csv("data/fico_income_20k_predict_rate.csv", header = TRUE)
+appdec_all$rate <- as.numeric(appdec_all$rate)
+
+approved_rows = as.data.frame(appdec_all[appdec_all$decision_status == "APPROVED",])
+pRate <- ggplot(approved_rows, aes(lender_code_general, rate))
+pRate + geom_boxplot()
+```
+
+
+```{r}
+# Separate into training and test
+require(caTools)
+
+appdec_all <- read.csv("data/fico_income_20k_predict_rate.csv", header = TRUE)
+dp.loan.fico.lenderC <- as.data.frame(appdec_all[appdec_all$lender_code_general == "LenderC",])
+
+# 75% of the sample size
+smp_size <- floor(0.75 * nrow(dp.loan.fico.lenderC))
+# set the seed to make your partition reproductible
+set.seed(54320)
+train_ind.lenderC <- sample(seq_len(nrow(dp.loan.fico.lenderC)), size = smp_size)
+train_fico.lenderC <- dp.loan.fico.lenderC[train_ind.lenderC, ]
+test_fico.lenderC <- dp.loan.fico.lenderC[-train_ind.lenderC, ]
+
+#train_fico.lenderC$income <- as.numeric(train_fico.lenderC$income)
+#test_fico.lenderC$income <- as.numeric(test_fico.lenderC$income)
+
+#train_fico.lenderC$fico_score <- as.numeric(train_fico.lenderC$fico_score)
+#test_fico.lenderC$fico_score <- as.numeric(test_fico.lenderC$fico_score)
+
+#train_fico.lenderC$monthly_payment <- as.numeric(train_fico.lenderC$monthly_payment)
+#test_fico.lenderC$monthly_payment <- as.numeric(test_fico.lenderC$monthly_payment)
+
+#train_fico.lenderC$state <- factor(train_fico.lenderC$state)
+#test_fico.lenderC$state <- factor(test_fico.lenderC$state)
+
+#train_fico.lenderC$lender_code <- factor(train_fico.lenderC$lender_code)
+#test_fico.lenderC$lender_code <- factor(test_fico.lenderC$lender_code)
+
+#train_fico.lenderC$fico_score_normal <- train_fico.lenderC$fico_score / 600
+#test_fico.lenderC$fico_score_normal <- test_fico.lenderC$fico_score / 600
+
+#train_fico.lenderC$income_normal <- train_fico.lenderC$income / 10000
+#test_fico.lenderC$income_normal <- test_fico.lenderC$income / 10000
+
+str(train_fico.lenderC)
+str(test_fico.lenderC)
+```
+
+```{r}
+mod.rate.lenderC.0 = lm(rate ~ age + monthly_payment + terms, data = train_fico.lenderC)
+summary(mod.rate.lenderC.0)
+```
+
+```{r}
+mod.rate.lenderC.1 = lm(rate ~ age + state + monthly_payment + terms + income + loan_amount, data = train_fico.lenderC)
+summary(mod.rate.lenderC.1)
+```
+
+```{r}
+mod.rate.lenderC.2 = lm(rate ~ age + state + monthly_payment + terms + income + fico_score, data = train_fico.lenderC)
+summary(mod.rate.lenderC.2)
+```
+
+```{r}
+mod.rate.lenderC.3 = lm(rate ~ age + state + monthly_payment + terms + income + fico_score + loan_amount, data = train_fico.lenderC)
+summary(mod.rate.lenderC.3)
+```
+
+```{r}
+mod.rate.lenderC.4 = lm(rate ~ age + monthly_payment + terms + income + fico_score + loan_amount, data = train_fico.lenderC)
+summary(mod.rate.lenderC.4)
+```
+
+```{r}
+install.packages("sjPlot")
+library("sjPlot")
+sjp.lm(mod.rate.lenderC.4,
+       separateConfColumn = FALSE,
+       showAIC = TRUE,
+       showFStat = TRUE)
+```
+
+```{r}
+# Predictions
+plot(test_fico.lenderC)
+predictTestLenderC= predict(mod.rate.no.fico.lenderC, newdata = test_fico.lenderC)
+plot(predictTestLenderC)
+write.csv(predictTestLenderC, file = "predictRateLenderC_nofico.csv")
+write.csv(test_fico.lenderC, file = "testRateFicoLenderC_nofico.csv")
+```
+
+```{r}
+# Predictions
+plot(test_fico.lenderC)
+predictTestFicoLenderC= predict(mod.rate.fico.lenderC, newdata = test_fico.lenderC)
+plot(predictTestFicoLenderC)
+write.csv(predictTestFicoLenderC, file = "predictRateFicoLenderC.csv")
+write.csv(test_fico.lenderC, file = "testRateFicoLenderC.csv")
+```
+
+### Car recommendation Model
+```{r}
+# Setup data.
+makes = read.csv("makematrix_binary_55_percent.csv", header = TRUE)
+str(makes)
+
+colnames(makes) = c('MakeName', 'McLaren', 'Maserati', 'MINI', 'Chevrolet', 'Porsche', 'Acura', 'Mercedes-Benz', 'Ford', 'Genesis', 'Smart', 'Dodge', 'Scion', 'Rolls-Royce', 'Cadillac', 'Honda', 'Hyundai', 'Volkswagen', 'Mazda', 'Jeep', 'Infiniti', 'Land Rover', 'Kia', 'Mitsubishi', 'BMW', 'FIAT', 'Lincoln', 'Lamborghini', 'Jaguar', 'GMC', 'Toyota', 'Nissan', 'Aston Martin', 'Volvo', 'Ferrari', 'Chrysler', 'Bentley', 'Tesla', 'Ram', 'Alfa Romeo', 'Subaru', 'Buick', 'Lexus', 'Audi')
+str(makes)
+```
+```{r}
+# Remove columns
+# makes$MakeName = NULL
+# Remove duplicates
+makes = unique(makes)
+str(makes)
+```
+
+```{r}
+distances = dist(makes, method = "euclidean")
+# For dendrogram
+clusterMovies = hclust(distances, method = "ward")
+plot(clusterMovies)
+```
+```{r}
+# 10 clusters, and average value for each cluster.
+clusterGroups = cutree(clusterMovies, k = 11)
+# Mean of each cluster, of which are "Make""
+tapply(makes$Honda, clusterGroups, mean)
+tapply(makes$Toyota, clusterGroups, mean)
+tapply(makes$BMW, clusterGroups, mean)
+```
+```{r}
+# Find the cluster that a movie has fallen in.
+# This gives us the row number.
+subset(makes, MakeName == "Porsche")
+# Which clusterGroup is make n in?
+clusterGroups[5]
+cluster2 = subset(makes, clusterGroups == 2)
+head(cluster2)
+```
+
+```{r}
+# Find the cluster that a movie has fallen in.
+# This gives us the row number.
+subset(makes, MakeName == "Honda")
+# Which clusterGroup is movie n in?
+clusterGroups[15]
+cluster7 = subset(makes, clusterGroups == 1)
+head(cluster7)
+```
+
+```{r}
+# Find the cluster that a movie has fallen in.
+# This gives us the row number.
+subset(makes, MakeName == "BMW")
+# Which clusterGroup is movie n in?
+clusterGroups[24]
+cluster2 = subset(makes, clusterGroups == 7)
+cluster2
+```
+
+```{r}
+# Find the cluster that a movie has fallen in.
+# This gives us the row number.
+subset(makes, MakeName == "GMC")
+# Which clusterGroup is movie n in?
+clusterGroups[29]
+cluster2 = subset(makes, clusterGroups == 10)
+head(cluster2)
+```
+```{r}
+# Find the cluster that a movie has fallen in.
+# This gives us the row number.
+subset(makes, MakeName == "Volvo")
+# Which clusterGroup is movie n in?
+clusterGroups[33]
+cluster2 = subset(makes, clusterGroups == 5)
+head(cluster2)
+```
+```{r}
+# Find the cluster that a movie has fallen in.
+# This gives us the row number.
+subset(makes, MakeName == "Mercedes-Benz")
+# Which clusterGroup is movie n in?
+clusterGroups[7]
+cluster2 = subset(makes, clusterGroups == 3)
+head(cluster2)
+```
+```{r}
+# scion, jeep, mazda
+subset(makes, MakeName == "Scion")
+# Which clusterGroup is movie n in?
+clusterGroups[12]
+cluster2 = subset(makes, clusterGroups == 8)
+head(cluster2)
+```
+
+```{r}
+subset(makes, MakeName == "Jeep")
+# Which clusterGroup is movie n in?
+clusterGroups[19]
+cluster2 = subset(makes, clusterGroups == 11)
+head(cluster2)
+```
+
+```{r}
+subset(makes, MakeName == "Mazda")
+# Which clusterGroup is movie n in?
+clusterGroups[18]
+cluster2 = subset(makes, clusterGroups == 8)
+head(cluster2)
+```
+
+```{r}
+# Lincoln
+subset(makes, MakeName == "Lincoln")
+# Which clusterGroup is movie n in?
+clusterGroups[26]
+cluster2 = subset(makes, clusterGroups == 3)
+head(cluster2)
+```
+
+```{r}
+# Lamborghini
+subset(makes, MakeName == "Lamborghini")
+# Which clusterGroup is movie n in?
+clusterGroups[27]
+cluster2 = subset(makes, clusterGroups == 7)
+head(cluster2)
+```
+
+### User Clustering
+```{r}
+
+# Now load the data and look at the first few rows
+ag.decision.groups = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/91_mp_people_decision_binary.csv", header = TRUE)
+
+#library(dplyr)
+#ag.people = read.csv("mp_people_properties_header_consol.csv", header = TRUE)
+#joined <- left_join(ag.fico.groups, ag.people, by = c("distinct_id" = "distinct_id"), suffix = c("1", "2"))
+#write.csv(joined, file = "fico_people.csv")
+
+# Create the required subset
+datadecision <- ag.decision.groups[,c(1:19)]
+datadecision <- na.omit(datadecision)
+
+datadecision$state <- as.numeric(datadecision$state)
+datadecision$employment_status <- as.numeric(datadecision$employment_status)
+
+# Exercise 1: Remove the first column from the data and scale
+# it using the scale() function
+str(datadecision)
+head(datadecision)
+sapply(datadecision, class)
+
+
+dim(datadecision)
+df1 <- scale(datadecision[-1])
+wssplot(df1)
+
+# Now we'd like to cluster the data using K-Means. 
+# How do we decide how many clusters to use if you don't know that already?
+# We'll try two methods.
+
+# Method 1: A plot of the total within-groups sums of squares against the 
+# number of clusters in a K-means solution can be helpful. A bend in the 
+# graph can suggest the appropriate number of clusters. 
+
+wssplot <- function(datadecision, nc=15, seed=123) {
+  wss <- (nrow(datadecision)-1)*sum(apply(datadecision,2,var))
+  for (i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(datadecision, centers=i)$withinss)}
+  
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")
+}
+
+wssplot(df1)
+
+# Exercise 2:
+#   * How many clusters does this method suggest?
+#   * Why does this method work? What's the intuition behind it?
+#   * Look at the code for wssplot() and figure out how it works
+
+# Method 2: Use the NbClust library, which runs many experiments
+# and gives a distribution of potential number of clusters.
+
+library(NbClust)
+set.seed(1234)
+nc <- NbClust(df1, min.nc=2, max.nc=9, method="kmeans")
+table(nc$Best.n[1,])
+
+barplot(table(nc$Best.n[1,]),
+        xlab="Numer of Clusters", ylab="Number of Criteria",
+        main="Number of Clusters Chosen by 26 Criteria")
+
+
+# Exercise 3: How many clusters does this method suggest?
+
+
+# Exercise 4: Once you've picked the number of clusters, run k-means 
+# using this number of clusters. Output the result of calling kmeans()
+# into a variable fit.km
+
+set.seed(321)
+fit.km1 <- kmeans(df1, 3, nstart=25)
+fit.km1$size
+
+# Now we want to evaluate how well this clustering does.
+fit.km1$centers 
+
+# Exercise 5: using the table() function, show how the clusters in fit.km$clusters
+# compares to the actual wine types in wine$Type. Would you consider this a good
+# clustering?
+fit.km1$cluster
+aggregate(datadecision[-1], by=list(cluster=fit.km1$cluster), mean)
+
+ct.km1 <- table(datadecision$fico_group, fit.km1$cluster)
+ct.km1  
+
+library(flexclust)
+randIndex(ct.km1)
+# Exercise 6:
+# * Visualize these clusters using  function clusplot() from the cluster library
+# * Would you consider this a good clustering?
+
+clusplot(df1, fit.km1$cluster, color = TRUE, shade = TRUE)
+fit.km1
+
+plot(datadecision[c("income", "number_of_models_selected")], col = fit.km1$cluster)
+library(ggplot2)
+f <- ggplot(datadecision, aes(fico_group, number_of_models_selected), col = fit.km$cluster)
+f + geom_jitter(aes())
+
+plot(datadecision[c("fico_group", "income")], col = fit.km1$cluster)
+library(ggplot2)
+f <- ggplot(datadecision, aes(fico_group, number_of_models_selected), col = fit.km$cluster)
+f + geom_jitter(aes())
+
+plot(datadecision[c("income", "number_of_models_selected")], col = fit.km1$cluster)
+library(ggplot2)
+f <- ggplot(datadecision, aes(fico_group, number_of_dealers_confirmed, col = fit.km1$cluster))
+f + geom_jitter()
+
+plot(datadecision[c("income", "number_of_models_selected")], col = fit.km1$cluster)
+library(ggplot2)
+f <- ggplot(datadecision, aes(fico_group, sessions, col = fit.km1$cluster))
+f + geom_jitter()
+
+plot(datadecision[c("income", "number_of_models_selected")], col = fit.km1$cluster)
+library(ggplot2)
+f <- ggplot(datadecision, aes(fico_group, number_of_calculator_clicks, col = fit.km1$cluster))
+f + geom_jitter()
+
+
+
+
+## Trying it out for fico_people
+### Try the above for approved or declined.
+
+# Now load the data and look at the first few rows
+ficopeople = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/fico_people_clean.csv", header = TRUE)
+
+#library(dplyr)
+#ag.people = read.csv("mp_people_properties_header_consol.csv", header = TRUE)
+#joined <- left_join(ag.fico.groups, ag.people, by = c("distinct_id" = "distinct_id"), suffix = c("1", "2"))
+#write.csv(joined, file = "fico_people.csv")
+
+# Create the required subset
+datadecision <- ficopeople[,c(1:10)]
+View(datadecision)
+datadecision <- subset(datadecision, income > 499)
+datadecision <- subset(datadecision, number_of_models_selected > 0 & number_of_models_selected < 30)
+datadecision <- subset(datadecision, number_of_lifetime_logins > 0 & number_of_lifetime_logins < 20)
+datadecision <- subset(datadecision, number_of_years_selected > 0 & number_of_years_selected < 30)
+datadecision <- subset(datadecision, number_of_trims_selected > 0 & number_of_trims_selected < 30)
+datadecision <- subset(datadecision, number_of_trims_confirmed > 0 & number_of_trims_confirmed < 30)
+datadecision <- subset(datadecision, number_of_dealers_selected > 0 & number_of_dealers_selected < 30)
+datadecision <- subset(datadecision, number_of_dealers_confirmed > 0 & number_of_dealers_confirmed < 30)
+datadecision <- subset(datadecision, number_of_dealers_confirmed > 0 & number_of_dealers_confirmed < 30)
+
+# View(datadecision)
+datadecision$state <- as.numeric(datadecision$state)
+datadecision$employment_status <- as.numeric(datadecision$employment_status)
+
+# Exercise 1: Remove the first column from the data and scale
+# it using the scale() function
+str(datadecision)
+head(datadecision, 5)
+sapply(datadecision, class)
+
+df1 <- scale(datadecision[-1])
+dim(datadecision)
+datadecision = na.omit(datadecision)
+dim(datadecision)
+
+wssplot(df1)
+
+# Now we'd like to cluster the data using K-Means. 
+# How do we decide how many clusters to use if you don't know that already?
+# We'll try two methods.
+
+# Method 1: A plot of the total within-groups sums of squares against the 
+# number of clusters in a K-means solution can be helpful. A bend in the 
+# graph can suggest the appropriate number of clusters. 
+
+wssplot <- function(datadecision, nc=10, seed=123) {
+  wss <- (nrow(datadecision)-1)*sum(apply(datadecision,2,var))
+  for (i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(datadecision, centers=i)$withinss)}
+  
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")
+}
+
+wssplot(df1)
+
+# Exercise 2:
+#   * How many clusters does this method suggest?
+#   * Why does this method work? What's the intuition behind it?
+#   * Look at the code for wssplot() and figure out how it works
+
+# Method 2: Use the NbClust library, which runs many experiments
+# and gives a distribution of potential number of clusters.
+
+library(NbClust)
+set.seed(1234)
+nc <- NbClust(df1, min.nc=2, max.nc=7, method="kmeans")
+table(nc$Best.n[1,])
+
+barplot(table(nc$Best.n[1,]),
+        xlab="Numer of Clusters", ylab="Number of Criteria",
+        main="Number of Clusters Chosen by 26 Criteria")
+
+set.seed(1234)
+fit.km1 <- kmeans(df1, 3, nstart=25)
+fit.km1$size
+
+# Now we want to evaluate how well this clustering does.
+fit.km1$centers 
+
+fit.km1$cluster
+aggregate(datadecision[-1], by=list(cluster=fit.km1$cluster), mean)
+
+ct.km1 <- table(datadecision$fico_group, fit.km1$cluster)
+ct.km1
+
+library(flexclust)
+randIndex(ct.km1)
+# Exercise 6:
+# * Visualize these clusters using  function clusplot() from the cluster library
+# * Would you consider this a good clustering?
+
+clusplot(df1, fit.km1$cluster, color = TRUE, shade = TRUE)
+fit.km1
+
+plot(datadecision[c("income", "number_of_trims_confirmed")], col = fit.km1$cluster)
+library(ggplot2)
+f <- ggplot(datadecision, aes(fico_group, number_of_models_selected), col = fit.km$cluster)
+f + geom_jitter(aes())
+
+
+# Hierarchical clustering:
+ficopeople = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/fico_people_clean.csv", header = TRUE)
+
+# Create the required subset
+datadecision <- ficopeople[,c(1:10)]
+datadecision <- na.omit(datadecision)
+d <- dist(datadecision, method = "euclidean") # Euclidean distance matrix.
+H.fit <- hclust(d, method="ward")
+
+plot(H.fit)
+groups <- cutree(H.fit, k=5)
+rect.hclust(H.fit, k=5, border="red")
+
+table(datadecision[,1],groups)
+
+# Clustering Analysis
+ficopeople = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/fico_people_clean.csv", header = TRUE)
+# Create the required subset
+datadecision <- ficopeople[,c(1:12)]
+dim(datadecision)
+datadecision = na.omit(datadecision)
+dim(datadecision)
+datadecision_z <- as.data.frame(lapply(datadecision, scale))
+user_clusters <- kmeans(datadecision_z, 5)
+user_clusters$size
+par(mfrow=c(2,2))
+pie(colSums(datadecision[user_clusters$cluster==1,]),cex=0.5)
+pie(colSums(datadecision[user_clusters$cluster==2,]),cex=0.5)
+pie(colSums(datadecision[user_clusters$cluster==3,]),cex=0.5)
+pie(colSums(datadecision[user_clusters$cluster==4,]),cex=0.5)
+pie(colSums(datadecision[user_clusters$cluster==5,]),cex=0.5)
+user_clusters$centers
+
+
+ficopeople_linear = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/fico_people_clean.csv", header = TRUE)
+# Separate into training and test
+require(caTools)
+
+ficogrp_linear <- ficopeople_linear[,c(1:14)]
+ficogrp_linear <- na.omit(ficogrp_linear)
+str(ficogrp_linear)
+
+ficogrp_linear <- subset(ficogrp_linear, number_of_models_selected > 0 & number_of_models_selected < 30)
+ficogrp_linear <- subset(ficogrp_linear, number_of_lifetime_logins > 0 & number_of_lifetime_logins < 20)
+ficogrp_linear <- subset(ficogrp_linear, number_of_years_selected > 0 & number_of_years_selected < 30)
+ficogrp_linear <- subset(ficogrp_linear, number_of_trims_selected > 0 & number_of_trims_selected < 30)
+ficogrp_linear <- subset(ficogrp_linear, number_of_trims_confirmed > 0 & number_of_trims_confirmed < 30)
+ficogrp_linear <- subset(ficogrp_linear, number_of_dealers_selected > 0 & number_of_dealers_selected < 30)
+ficogrp_linear <- subset(ficogrp_linear, number_of_dealers_confirmed > 0 & number_of_dealers_confirmed < 30)
+ficogrp_linear <- subset(ficogrp_linear, number_of_dealers_confirmed > 0 & number_of_dealers_confirmed < 30)
+
+dim(ficogrp_linear)
+str(ficogrp_linear)
+# 75% of the sample size
+smp_size <- floor(0.75 * nrow(ficogrp_linear))
+
+# set the seed to make your partition reproductible
+set.seed(54321)
+
+train_ind.ficogrp <- sample(seq_len(nrow(ficogrp_linear)), size = smp_size)
+train_fico.ficogrp <- ficogrp_linear[train_ind.ficogrp, ]
+test_fico.ficogrp <- ficogrp_linear[-train_ind.ficogrp, ]
+
+str(train_fico.ficogrp)
+str(test_fico.ficogrp)
+
+fico_grp_mod = lm(fico_group ~ number_of_dealers_selected + dp_by_loan + number_of_trims_selected, data = train_fico.ficogrp)
+# fico_grp_mod = lm(fico_group ~ loan_amount + number_of_models_selected + number_of_calculator_clicks, data = train_fico.ficogrp)
+summary(fico_grp_mod)
+
+test_fico.ficogrp$fico_group <- predict(fico_grp_mod, newdata = test_fico.ficogrp)
+write.csv(test_fico.ficogrp, file = "test_fico_ficogrp.csv")
+```
+
+### Guidance for credit applications.
+
+```{r income_rate}
+library(ggplot2)
+income_rate = read.csv("fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+f <- ggplot(income_rate, aes(loan_amount - down_payment, fico_group, col = decision_status))
+f + geom_jitter(size = 0.5, alpha = 0.2) + facet_grid(. ~ decision_status)
+```
+
+```{r income_rate}
+library(ggplot2)
+income_rate = read.csv("fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+f <- ggplot(income_rate, aes(loan_amount_group, income, col = decision_status))
+f + geom_jitter(size = 0.5, alpha = 0.2) + facet_grid(. ~ decision_status)
+```
+
+
+```{r income_rate}
+library(ggplot2)
+income_rate = read.csv("fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+f <- ggplot(income_rate, aes(loan_amount_and_fico_group_approval_rate, fico_group, col = decision_status))
+f + geom_jitter(size = 0.5, alpha = 0.2) + facet_grid(. ~ decision_status)
+```
+
+
+```{r}
+income_fico_approval_rate = read.csv("income_group_fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+f <- ggplot(income_fico_approval_rate, aes(fico_group, loan_amount_and_fico_group_approval_rate, group = loan_amount_group, col = factor(loan_amount_group)))
+f + geom_point(size=1, shape=21, fill="white") + geom_smooth()
+```
+
+```{r}
+f <- ggplot(income_fico_approval_rate, aes(loan_amount_group, income, group = loan_amount_group, col = factor(fico_group)))
+f + geom_point(size = 0.8, alpha = 0.8) + facet_grid(. ~ fico_group + decision_status)
+```
+
+```{r}
+f <- ggplot(income_fico_approval_rate, aes(terms, income, group = loan_amount_group, col = factor(fico_group)))
+f + geom_jitter(size = 0.2, alpha = 0.8) + facet_grid(. ~ decision_status)
+```
+
+```{r ritvikmath}
+income_fico_approval_rate = read.csv("income_group_fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+income_fico_approval_rate$monthly_payment <- as.numeric(income_fico_approval_rate$monthly_payment)
+income_fico_approval_rate_monthly <- subset(income_fico_approval_rate, (fico_group == 4 | fico_group == 5) & (monthly_payment > 200 & monthly_payment < 300))
+
+f <- ggplot(income_fico_approval_rate_monthly, aes(monthly_payment, loan_amount, group = loan_amount_group, col = factor(loan_amount_and_fico_group_approval_rate)))
+f + geom_point(size=1, shape=21, fill="white") + geom_jitter() + geom_smooth()
+
+dim(income_fico_approval_rate_monthly)
+```
+
+
+```{r ritvikmath}
+income_fico_approval_rate = read.csv("income_group_fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+income_fico_approval_rate$monthly_payment <- as.numeric(income_fico_approval_rate$monthly_payment)
+#income_fico_approval_rate_monthly <- subset(income_fico_approval_rate, (fico_group == 4 | fico_group == 5) & (monthly_payment > 200 & monthly_payment < 300))
+
+f <- ggplot(income_fico_approval_rate, aes(loan_amount_group, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_point(size=1, shape=21, fill="white")  + geom_smooth(se = FALSE)
+dim(income_fico_approval_rate_monthly)
+```
+
+```{r ritvikmath}
+# https://www.experian.com/blogs/ask-experian/infographic-what-are-the-different-scoring-ranges/
+income_fico_approval_rate = read.csv("income_group_fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+income_fico_approval_rate$monthly_payment <- as.numeric(income_fico_approval_rate$monthly_payment)
+#income_fico_approval_rate_monthly <- subset(income_fico_approval_rate, (fico_group == 4 | fico_group == 5) & (monthly_payment > 200 & monthly_payment < 300))
+
+f <- ggplot(income_fico_approval_rate, aes(monthly_payment, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_point(size=1, shape=21, fill="white")  + geom_smooth(se = FALSE)
+dim(income_fico_approval_rate_monthly)
+```
+
+
+```{r ritvikmath}
+income_fico_approval_rate = read.csv("income_group_fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+#income_fico_approval_rate$monthly_payment <- as.numeric(income_fico_approval_rate$monthly_payment)
+income_fico_approval_rate_monthly <- subset(income_fico_approval_rate, (lender_code == 'RL'))
+#income_fico_approval_rate_monthly <- subset(income_fico_approval_rate, (loan_per_income > 0 & loan_per_income < 20))
+
+f <- ggplot(income_fico_approval_rate_monthly, aes(income, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_point(size=1, shape=21, fill="white")  + geom_smooth(se = FALSE)
+dim(income_fico_approval_rate_monthly)
+```
+
+
+```{r ritvikmath}
+income_fico_approval_rate = read.csv("income_group_fico_income_20k_clustering_data_appdec.csv", header = TRUE)
+#income_fico_approval_rate$monthly_payment <- as.numeric(income_fico_approval_rate$monthly_payment)
+#income_fico_approval_rate_monthly <- subset(income_fico_approval_rate, (lender_code == 'U2D'))
+#income_fico_approval_rate_monthly <- subset(income_fico_approval_rate, (loan_per_income > 0 & loan_per_income < 20))
+income_fico_approval_rate$terms <- as.numeric(income_fico_approval_rate$terms)
+f <- ggplot(income_fico_approval_rate, aes(terms, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_point(size=1, shape=21, fill="white") + geom_boxplot()
+dim(income_fico_approval_rate_monthly)
+```
+
+```{r}
+g <- ggplot(income_fico_approval_rate, aes(fico_group, income))
+g + geom_quantile()
+```
+
+
+```{r}
+u2d_income_fico_approval_rate = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+f <- ggplot(u2d_income_fico_approval_rate, aes(fico_group, loan_amount_and_fico_group_approval_rate, group = loan_amount_group, col = factor(loan_amount_group)))
+f + geom_smooth(se = FALSE)
+```
+```{r}
+u2d_income_fico_approval_rate1 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+f <- ggplot(u2d_income_fico_approval_rate1, aes(income, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_smooth(model = lm, se= FALSE)
+```
+```{r}
+u2d_income_fico_approval_rate2 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+f <- ggplot(u2d_income_fico_approval_rate2, aes(loan_amount_group, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_smooth(model = lm, se = FALSE) + facet_grid(. ~ fico_group)
+```
+
+```{r}
+u2d_income_fico_approval_rate1 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+f <- ggplot(u2d_income_fico_approval_rate1, aes(terms, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_point() + geom_smooth(model = lm, se = FALSE)
+```
+```{r}
+rl_income_fico_approval_rate1 = read.csv("rl_income_loan_approval.csv", header = TRUE)
+f <- ggplot(rl_income_fico_approval_rate1, aes(loan_amount_group, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_smooth() + facet_grid(. ~ fico_group)
+```
+
+
+
+```{r}
+u2d_income_fico_approval_rate2 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+f <- ggplot(u2d_income_fico_approval_rate2, aes(income, loan_amount_and_fico_group_approval_rate, group = fico_group, col = factor(fico_group)))
+f + geom_smooth(model = lm, se = FALSE)
+```
+
+```{r}
+u2d_income_fico_approval_rate3 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+f <- ggplot(u2d_income_fico_approval_rate3, aes(down_payment, loan_amount_and_fico_group_approval_rate, group = loan_amount_group, col = factor(loan_amount_group)))
+f + geom_smooth(model = lm, se = FALSE)
+```
+```{r}
+#dplyr::select(iris, Sepal.Width, Petal.Length, Species)
+library(dplyr)
+library(reshape2)
+u2d_income_fico_approval_rate4 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+subset <- data.frame(select(u2d_income_fico_approval_rate4, loan_amount, down_payment, loan_amount_and_fico_group_approval_rate))
+write.csv(acast(subset, loan_amount~down_payment, mean, na.rm = TRUE, value.var="loan_amount_and_fico_group_approval_rate"), file="matrix.csv")
+```
+
+```{r}
+library(dplyr)
+library(reshape2)
+u2d_income_fico_approval_rate5 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+subset1 <- data.frame(select(u2d_income_fico_approval_rate4, loan_amount_group, fico_group, loan_amount_and_fico_group_approval_rate))
+write.csv(acast(subset1, loan_amount_group~fico_group, mean, na.rm = TRUE, value.var="loan_amount_and_fico_group_approval_rate"), file="group_matrix.csv")
+```
+
+
+```{r}
+library(dplyr)
+library(reshape2)
+u2d_income_fico_approval_rate5 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+subset1 <- data.frame(select(u2d_income_fico_approval_rate4, income, fico_group, loan_amount_and_fico_group_approval_rate))
+write.csv(acast(subset1, income~fico_group, mean, na.rm = TRUE, value.var="loan_amount_and_fico_group_approval_rate"), file="group_matrix_income.csv")
+```
+
+
+```{r}
+library(dplyr)
+library(reshape2)
+u2d_income_fico_approval_rate6 = read.csv("u2d_income_loan_approval_rate.csv", header = TRUE)
+subset2 <- data.frame(select(u2d_income_fico_approval_rate6, down_payment, monthly_payment, loan_amount_and_fico_group_approval_rate))
+write.csv(acast(subset2, down_payment~monthly_payment, mean, na.rm = TRUE, value.var="loan_amount_and_fico_group_approval_rate"), file="dp_monthly_matrix.csv")
+```
+
+```{r}
+library(dplyr)
+library(reshape2)
+fico_2_u2d_income_fico_approval_rate = read.csv("fico_2_u2d_income_loan_approval_rate.csv", header = TRUE)
+subset3 <- data.frame(select(fico_2_u2d_income_fico_approval_rate, down_payment, monthly_payment, loan_amount_and_fico_group_approval_rate))
+write.csv(acast(subset3, down_payment~monthly_payment, mean, na.rm = TRUE, value.var="loan_amount_and_fico_group_approval_rate"), file="fico_2_dp_monthly_matrix.csv")
+
+```
+
+
+```{r}
+library(dplyr)
+library(reshape2)
+fico_2_u2d_income_fico_approval_rate1 = read.csv("fico_2_u2d_income_loan_approval_rate.csv", header = TRUE)
+subset4 <- data.frame(select(fico_2_u2d_income_fico_approval_rate, income, monthly_payment, loan_amount_and_fico_group_approval_rate))
+write.csv(acast(subset4, income~monthly_payment, mean, na.rm = TRUE, value.var="loan_amount_and_fico_group_approval_rate"), file="fico_2_income_monthly_matrix.csv")
+```
+
+```{r}
+library(dplyr)
+library(reshape2)
+loan_fico_approval = read.csv("loan_amount_fico_2_u2d_income_loan_approval_rate.csv", header = TRUE)
+f <- ggplot(loan_fico_approval, aes(loan_amount_group, income, group = loan_amount_group, col = factor(fico_group)))
+f + geom_jitter()
+```
+
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
