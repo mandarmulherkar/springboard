@@ -36,7 +36,7 @@ plot(clusterMovies)
 ```{r}
 # 10 clusters, and average value for each cluster.
 clusterGroups = cutree(clusterMovies, k = 11)
-# Mean of each cluster, of which are "Action""
+# Mean of each cluster, of which are "Make""
 tapply(makes$Honda, clusterGroups, mean)
 tapply(makes$Toyota, clusterGroups, mean)
 tapply(makes$BMW, clusterGroups, mean)
@@ -45,7 +45,7 @@ tapply(makes$BMW, clusterGroups, mean)
 # Find the cluster that a movie has fallen in.
 # This gives us the row number.
 subset(makes, MakeName == "Porsche")
-# Which clusterGroup is movie n in?
+# Which clusterGroup is make n in?
 clusterGroups[5]
 cluster2 = subset(makes, clusterGroups == 2)
 head(cluster2)

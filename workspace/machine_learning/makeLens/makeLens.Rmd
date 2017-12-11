@@ -9,6 +9,7 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 
 ```{r}
 # Setup data.
+# "/Users/Mandar/Documents/datascience/springboard/workspace/machine_learning/makeLens"
 makes = read.csv("makematrix.csv", header = TRUE)
 str(makes)
 
@@ -76,6 +77,186 @@ clusterGroups[28]
 cluster2 = subset(makes, clusterGroups == 2)
 head(cluster2)
 ```
+
+```{r}
+head(makes, 3)
+interests <- makes[2:44]
+interests_z <- as.data.frame(lapply(interests, scale))
+set.seed(12345)
+make_clusters <- kmeans(interests_z, 8)
+make_clusters$size
+make_clusters$centers
+
+par(mfrow=c(2,2))
+pie(colSums(interests[make_clusters$cluster==1,]),cex=0.5)
+pie(colSums(interests[make_clusters$cluster==2,]),cex=0.5)
+pie(colSums(interests[make_clusters$cluster==3,]),cex=0.5)
+pie(colSums(interests[make_clusters$cluster==4,]),cex=0.5)
+pie(colSums(interests[make_clusters$cluster==5,]),cex=0.5)
+pie(colSums(interests[make_clusters$cluster==6,]),cex=0.5)
+pie(colSums(interests[make_clusters$cluster==7,]),cex=0.5)
+pie(colSums(interests[make_clusters$cluster==8,]),cex=0.5)
+```
+
+```{r}
+# ranked bar plot
+final_df <- as.data.frame(t(interests[make_clusters$cluster==1,]))
+
+final_df <- setNames(cbind(rownames(final_df), final_df, row.names = NULL), 
+         c("make_name", colnames(final_df)))
+View(final_df)
+df <- final_df
+
+# creating the 'Total' variable
+df$Total <- rowSums(df[,2:ncol(df)])
+
+newdata <- df[order(df$Total),]
+newdata$make_name <- factor(newdata$make_name, levels = newdata$make_name)
+
+# creating the plot
+ggplot(newdata, aes(make_name, Total)) + 
+  geom_bar(stat="identity", aes(fill = make_name)) +
+  theme_bw() + 
+  coord_flip()
+```
+
+
+
+```{r}
+# ranked bar plot
+final_df <- as.data.frame(t(interests[make_clusters$cluster==7,]))
+
+final_df <- setNames(cbind(rownames(final_df), final_df, row.names = NULL), 
+         c("make_name", colnames(final_df)))
+
+df <- final_df
+
+# creating the 'Total' variable
+df$Total <- rowSums(df[,2:ncol(df)])
+
+newdata <- df[order(df$Total),]
+newdata$make_name <- factor(newdata$make_name, levels = newdata$make_name)
+
+# creating the plot
+ggplot(newdata, aes(make_name, Total)) + 
+  geom_bar(stat="identity", aes(fill = make_name)) +
+  theme_bw() + 
+  coord_flip()
+```
+
+
+```{r}
+# ranked bar plot
+final_df <- as.data.frame(t(interests[make_clusters$cluster==3,]))
+
+final_df <- setNames(cbind(rownames(final_df), final_df, row.names = NULL), 
+         c("make_name", colnames(final_df)))
+View(final_df)
+df <- final_df
+
+# creating the 'Total' variable
+df$Total <- rowSums(df[,2:ncol(df)])
+
+newdata <- df[order(df$Total),]
+newdata$make_name <- factor(newdata$make_name, levels = newdata$make_name)
+
+# creating the plot
+ggplot(newdata, aes(make_name, Total)) + 
+  geom_bar(stat="identity", aes(fill = make_name)) +
+  theme_bw() + 
+  coord_flip()
+```
+
+
+```{r}
+# ranked bar plot
+final_df <- as.data.frame(t(interests[make_clusters$cluster==4,]))
+
+final_df <- setNames(cbind(rownames(final_df), final_df, row.names = NULL), 
+         c("make_name", colnames(final_df)))
+View(final_df)
+df <- final_df
+
+# creating the 'Total' variable
+df$Total <- rowSums(df[,2:ncol(df)])
+
+newdata <- df[order(df$Total),]
+newdata$make_name <- factor(newdata$make_name, levels = newdata$make_name)
+
+# creating the plot
+ggplot(newdata, aes(make_name, Total)) + 
+  geom_bar(stat="identity", aes(fill = make_name)) +
+  theme_bw() + 
+  coord_flip()
+```
+
+
+
+
+```{r}
+library(cluster)
+make_interests <- makes[1:44]
+D=daisy(make_interests, metric='gower')
+makes.fit <- hclust(D, method="ward")
+
+plot(makes.fit) # display dendrogram
+
+rect.hclust(makes.fit, k=9, border="red") 
+clusplot(make_interests, groups, color=TRUE, shade=TRUE,
+         labels=2, lines=0, main= 'Make segments')
+```
+
+```{r}
+groups <- cutree(makes.fit, k=6) # cut tree into 6 clusters
+plot(makes.fit) # display dendrogram
+rect.hclust(Makes.fit, k=4, border="red") 
+```
+
+```{r}
+# makematrix_binary_55_percent
+# /Users/Mandar/Documents/datascience/springboard/workspace/machine_learning/makeLens
+
+make_matrix_55 <- read.csv("makematrix_binary_55_percent.csv")
+str(make_matrix_55)
+interests_55 <- make_matrix_55[2:44]
+interests_55_z <- as.data.frame(lapply(interests_55, scale))
+set.seed(12347)
+make_clusters_55 <- kmeans(interests_55_z, 9)
+make_clusters_55$size
+
+par(mfrow=c(2,2))
+pie(colSums(interests_55[make_clusters_55$cluster==1,]),cex=0.5)
+pie(colSums(interests_55[make_clusters_55$cluster==2,]),cex=0.5)
+pie(colSums(interests_55[make_clusters_55$cluster==3,]),cex=0.5)
+pie(colSums(interests[make_clusters_55$cluster==4,]),cex=0.5)
+pie(colSums(interests[make_clusters_55$cluster==5,]),cex=0.5)
+pie(colSums(interests[make_clusters_55$cluster==6,]),cex=0.5)
+pie(colSums(interests[make_clusters_55$cluster==7,]),cex=0.5)
+pie(colSums(interests[make_clusters_55$cluster==8,]),cex=0.5)
+```
+
+```{r}
+#grpMakes <- na.omit(grpMakes)
+grpMakes <- kmeans(make_matrix_55[,2:44], centers=8, nstart=10)
+grpMakes
+
+o=order(grpMakes$cluster)
+data.frame(make_matrix_55$MakeName[o],grpMakes$cluster[o])
+```
+
+
+```{r}
+library(cluster)
+make_matrix_55 <- read.csv("makematrix_binary_55_percent.csv")
+make_interests <- make_matrix_55[2:44]
+D=daisy(make_interests, metric='gower')
+makes.fit <- hclust(D, method="ward")
+plot(makes.fit) # display dendrogram
+rect.hclust(makes.fit, k=4, border="red")
+clusplot(make_interests, groups, color=TRUE, shade=TRUE,
+         labels=2, lines=0, main= 'Make segments')
+```
+
 
 
 

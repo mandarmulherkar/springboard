@@ -1,3 +1,15 @@
+---
+title: "ag_fico_clustering_copy.Rmd"
+author: "Mandar Mulherkar"
+date: "November 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
 # This mini-project is based on the K-Means exercise from 'R in Action'
 # Go here for the original blog post and solutions
 # http://www.r-bloggers.com/k-means-clustering-from-r-in-action/
@@ -30,7 +42,7 @@ dim(data)
 str(data)
 
 #data <- subset(data, fico_group == 3 | fico_group == 4 | fico_group == 5 | fico_group == 2)
-data <- subset(data, select=c("fico_group", "number_of_makes_selected", "number_of_models_selected", "number_of_trims_selected", "number_of_dealers_selected"))
+data <- subset(data, select=c("fico_group", "number_of_makes_selected", "number_of_models_selected", "number_of_trims_selected", "number_of_dealers_selected", "sessions"))
 dim(data)
 
 data$employment_status <- as.numeric(data$employment_status)
@@ -42,19 +54,24 @@ str(data)
 head(data)
 g <- ggplot(data, aes(fico_group))
 g + geom_bar()
+```
 
-
+```{r}
 f <- ggplot(data, aes(fico_group, number_of_makes_selected, col = fico_group))
 f + geom_jitter()
 
-
-f <- ggplot(data, aes(fico_group, number_of_models_selected, col = fit.km1$cluster))
+f <- ggplot(data, aes(fico_group, number_of_models_selected, col = fico_group))
 f + geom_jitter()
 
-
-f <- ggplot(data, aes(fico_group, number_of_trims_selected, col = fico_group))
+f <- ggplot(data, aes(fico_group, number_of_dealers_selected, col = fico_group))
 f + geom_jitter()
 
+f <- ggplot(data, aes(fico_group, sessions, col = fico_group))
+f + geom_jitter()
+```
+
+
+```{r}
 
 # Bootstrap 95% CI for R-Squared
 library(boot)
@@ -68,11 +85,19 @@ rsq <- function(formula, data, indices) {
 #results <- boot(data=data, statistic=rsq, 
 #                R=1000, formula=fico_group~number_of_makes_selected+number_of_models_selected+number_of_trims_confirmed+number_of_dealers_confirmed)
 
+str(data)
 results <- boot(data=data, statistic=rsq, 
-                R=1000, formula=fico_group~age+loan_amount+age)
+                R=1000, formula=fico_group~sessions)
+
+library(ggplot2)
+View(data)
+
+g <- ggplot(data, aes(fico_group))
+g + geom_bar()
 
 # view results
 str(results$data)
+str(results)
 plot(results)
 
 # get 95% confidence interval 
@@ -81,7 +106,10 @@ boot.ci(results, type="bca")
 data <- results$data
 
 dim(data)
+```
 
+
+```{r}
 df <- scale(data[-1])
 
 # Now we'd like to cluster the data using K-Means. 
@@ -105,7 +133,9 @@ wssplot <- function(data, nc=15, seed=12345){
 	   }
 
 wssplot(df)
+```
 
+```{r}
 # Exercise 2:
 #   * How many clusters does this method suggest?
 #   * Why does this method work? What's the intuition behind it?
@@ -115,15 +145,17 @@ wssplot(df)
 # and gives a distribution of potential number of clusters.
 
 library(NbClust)
-set.seed(12345)
-nc <- NbClust(df, min.nc=3, max.nc=7, method="kmeans")
+set.seed(1234)
+nc <- NbClust(df, min.nc=3, max.nc=10, method="kmeans")
 table(nc$Best.n[1,])
 
 barplot(table(nc$Best.n[1,]),
-	          xlab="Numer of Clusters", ylab="Number of Criteria",
+	          xlab="Number of Clusters", ylab="Number of Criteria",
 		            main="Number of Clusters Chosen by 26 Criteria")
+```
 
 
+```{r}
 # Exercise 3: How many clusters does this method suggest?
 
 
@@ -131,22 +163,27 @@ barplot(table(nc$Best.n[1,]),
 # using this number of clusters. Output the result of calling kmeans()
 # into a variable fit.km
 
-set.seed(4312)
-fit.km <- kmeans(df, 4, nstart=25)
+set.seed(4321)
+fit.km <- kmeans(df, 3, nstart=25)
 fit.km$size
+```
 
+```{r}
 # Now we want to evaluate how well this clustering does.
 fit.km$centers
 fit.km$cluster
+```
 
-
+```{r}
 # Exercise 5: using the table() function, show how the clusters in fit.km$clusters
 # compares to the actual wine types in wine$Type. Would you consider this a good
 # clustering?
 aggregate(data[-1], by=list(cluster=fit.km$cluster), mean)
 ct.km <- table(data$fico_group, fit.km$cluster)
 ct.km 
+```
 
+```{r}
 library(flexclust)
 randIndex(ct.km)
 # Exercise 6:
@@ -154,11 +191,17 @@ randIndex(ct.km)
 # * Would you consider this a good clustering?
 
 clusplot(df, fit.km$cluster, main='2D representation of the Cluster solution', color = TRUE, shade = TRUE, labels=2, lines=0)
+```
 
-plot(data[c("fico_group", "number_of_models_selected")], col = fit.km$cluster)
+
+```{r}
 library(ggplot2)
-f <- ggplot(data, aes(fico_group, number_of_models_selected), col = fit.km$cluster)
-f + geom_jitter(aes())
+plot(data[c("fico_group", "number_of_models_selected")], col = fit.km$cluster)
+
+fit.km$cluster
+f <- ggplot(data, aes(fico_group, number_of_makes_selected))
+f + geom_jitter(col = fit.km$cluster)
+```
 
 
 
@@ -166,6 +209,7 @@ f + geom_jitter(aes())
 
 
 
+```{r}
 ### Try the above for approved or declined.
 
 # Now load the data and look at the first few rows
@@ -182,17 +226,44 @@ datadecision <- na.omit(datadecision)
 
 datadecision$state <- as.numeric(datadecision$state)
 datadecision$employment_status <- as.numeric(datadecision$employment_status)
+```
 
-# Exercise 1: Remove the first column from the data and scale
-# it using the scale() function
+
+```{r}
 str(datadecision)
 head(datadecision)
 sapply(datadecision, class)
-
-
 dim(datadecision)
+
+g <- ggplot(datadecision, aes(fico_group))
+g + geom_bar()
+```
+
+```{r}
+str(datadecision)
+datasub <- subset(datadecision, number_of_models_selected < 100)
+f <- ggplot(datasub, aes(sessions, number_of_models_selected, fill = factor(fico_group)))
+f + geom_jitter(aes(col = factor(fico_group)))
+
+f <- ggplot(datadecision, aes(number_of_calculator_clicks, fill = factor(fico_group)))
+f + geom_bar()
+
+f <- ggplot(datadecision, aes(income, age, col = fico_group))
+f + geom_jitter()
+
+f <- ggplot(datadecision, aes(fico_group, sessions, col = age_group))
+f + geom_jitter()
+
+f <- ggplot(datadecision, aes(fico_group, sessions, col = fico_group))
+f + geom_jitter()
+```
+
+
+
+```{r}
+# Exercise 1: Remove the first column from the data and scale
+# it using the scale() function
 df1 <- scale(datadecision[-1])
-wssplot(df1)
 
 # Now we'd like to cluster the data using K-Means. 
 # How do we decide how many clusters to use if you don't know that already?
@@ -213,7 +284,158 @@ wssplot <- function(datadecision, nc=15, seed=123) {
 }
 
 wssplot(df1)
+```
 
+
+```{r}
+# Exercise 2:
+#   * How many clusters does this method suggest?
+#   * Why does this method work? What's the intuition behind it?
+#   * Look at the code for wssplot() and figure out how it works
+
+# Method 2: Use the NbClust library, which runs many experiments
+# and gives a distribution of potential number of clusters.
+
+library(NbClust)
+set.seed(1234)
+nc <- NbClust(df1, min.nc=2, max.nc=9, method="kmeans")
+table(nc$Best.n[1,])
+
+barplot(table(nc$Best.n[1,]),
+        xlab="Number of Clusters", ylab="Number of Criteria",
+        main="Number of Clusters Chosen by Criteria")
+```
+
+
+```{r}
+# Exercise 3: How many clusters does this method suggest?
+
+# Exercise 4: Once you've picked the number of clusters, run k-means 
+# using this number of clusters. Output the result of calling kmeans()
+# into a variable fit.km
+set.seed(43210)
+fit.km1 <- kmeans(df1, 2, nstart=25)
+fit.km1$size
+```
+
+```{r}
+# Exercise 5: using the table() function, show how the clusters in fit.km$clusters
+# compares to the actual wine types in wine$Type. Would you consider this a good
+# clustering?
+# Now we want to evaluate how well this clustering does.
+fit.km1$centers 
+fit.km1$cluster
+```
+
+```{r}
+aggregate(datadecision[-1], by=list(cluster=fit.km1$cluster), mean)
+
+ct.km1 <- table(datadecision$decision_status, fit.km1$cluster)
+ct.km1  
+```
+
+```{r}
+library(flexclust)
+randIndex(ct.km1)
+# Exercise 6:
+# * Visualize these clusters using  function clusplot() from the cluster library
+# * Would you consider this a good clustering?
+
+clusplot(df1, fit.km1$cluster, color = TRUE, shade = TRUE)
+fit.km1
+```
+
+
+
+
+
+
+
+
+```{r}
+### Checking for decision status clustering.
+```
+
+
+```{r}
+### Try the above for approved or declined.
+
+# Now load the data and look at the first few rows
+ag.decision.groups = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/91_mp_people_decision_binary.csv", header = TRUE)
+
+#library(dplyr)
+#ag.people = read.csv("mp_people_properties_header_consol.csv", header = TRUE)
+#joined <- left_join(ag.fico.groups, ag.people, by = c("distinct_id" = "distinct_id"), suffix = c("1", "2"))
+#write.csv(joined, file = "fico_people.csv")
+
+# Create the required subset
+datadecision <- ag.decision.groups[,c(1:19)]
+datadecision <- na.omit(datadecision)
+
+datadecision$state <- as.numeric(datadecision$state)
+datadecision$employment_status <- as.numeric(datadecision$employment_status)
+```
+
+
+```{r}
+str(datadecision)
+head(datadecision)
+sapply(datadecision, class)
+dim(datadecision)
+
+g <- ggplot(datadecision, aes(fico_group))
+g + geom_bar()
+```
+
+```{r}
+str(datadecision)
+datasub <- subset(datadecision, number_of_models_selected < 100)
+f <- ggplot(datasub, aes(sessions, number_of_models_selected, fill = factor(fico_group)))
+f + geom_jitter(aes(col = factor(fico_group)))
+
+f <- ggplot(datadecision, aes(number_of_calculator_clicks, fill = factor(fico_group)))
+f + geom_bar()
+
+f <- ggplot(datadecision, aes(income, age, col = fico_group))
+f + geom_jitter()
+
+f <- ggplot(datadecision, aes(fico_group, sessions, col = age_group))
+f + geom_jitter()
+
+f <- ggplot(datadecision, aes(fico_group, sessions, col = fico_group))
+f + geom_jitter()
+```
+
+
+
+```{r}
+# Exercise 1: Remove the first column from the data and scale
+# it using the scale() function
+df1 <- scale(datadecision[-1])
+
+# Now we'd like to cluster the data using K-Means. 
+# How do we decide how many clusters to use if you don't know that already?
+# We'll try two methods.
+
+# Method 1: A plot of the total within-groups sums of squares against the 
+# number of clusters in a K-means solution can be helpful. A bend in the 
+# graph can suggest the appropriate number of clusters. 
+
+wssplot <- function(datadecision, nc=15, seed=123) {
+  wss <- (nrow(datadecision)-1)*sum(apply(datadecision,2,var))
+  for (i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(datadecision, centers=i)$withinss)}
+  
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")
+}
+
+wssplot(df1)
+```
+
+
+```{r}
 # Exercise 2:
 #   * How many clusters does this method suggest?
 #   * Why does this method work? What's the intuition behind it?
@@ -229,32 +451,38 @@ table(nc$Best.n[1,])
 
 barplot(table(nc$Best.n[1,]),
         xlab="Numer of Clusters", ylab="Number of Criteria",
-        main="Number of Clusters Chosen by 26 Criteria")
+        main="Number of Clusters Chosen by Criteria")
+```
 
 
+```{r}
 # Exercise 3: How many clusters does this method suggest?
-
 
 # Exercise 4: Once you've picked the number of clusters, run k-means 
 # using this number of clusters. Output the result of calling kmeans()
 # into a variable fit.km
-
-set.seed(321)
-fit.km1 <- kmeans(df1, 3, nstart=25)
+set.seed(43211)
+fit.km1 <- kmeans(df1, 2, nstart=25)
 fit.km1$size
+```
 
-# Now we want to evaluate how well this clustering does.
-fit.km1$centers 
-
+```{r}
 # Exercise 5: using the table() function, show how the clusters in fit.km$clusters
 # compares to the actual wine types in wine$Type. Would you consider this a good
 # clustering?
+# Now we want to evaluate how well this clustering does.
+fit.km1$centers 
 fit.km1$cluster
+```
+
+```{r}
 aggregate(datadecision[-1], by=list(cluster=fit.km1$cluster), mean)
 
-ct.km1 <- table(datadecision$fico_group, fit.km1$cluster)
+ct.km1 <- table(datadecision$decision_status, fit.km1$cluster)
 ct.km1  
+```
 
+```{r}
 library(flexclust)
 randIndex(ct.km1)
 # Exercise 6:
@@ -263,7 +491,14 @@ randIndex(ct.km1)
 
 clusplot(df1, fit.km1$cluster, color = TRUE, shade = TRUE)
 fit.km1
+```
 
+
+
+
+
+
+```{r}
 plot(datadecision[c("income", "number_of_models_selected")], col = fit.km1$cluster)
 library(ggplot2)
 f <- ggplot(datadecision, aes(fico_group, number_of_models_selected), col = fit.km$cluster)
@@ -288,6 +523,16 @@ plot(datadecision[c("income", "number_of_models_selected")], col = fit.km1$clust
 library(ggplot2)
 f <- ggplot(datadecision, aes(fico_group, number_of_calculator_clicks, col = fit.km1$cluster))
 f + geom_jitter()
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -369,8 +614,10 @@ table(nc$Best.n[1,])
 barplot(table(nc$Best.n[1,]),
         xlab="Numer of Clusters", ylab="Number of Criteria",
         main="Number of Clusters Chosen by 26 Criteria")
+```
 
 
+```{r}
 # Exercise 3: How many clusters does this method suggest?
  
 
@@ -394,9 +641,11 @@ fit.km1$centers
 fit.km1$cluster
 aggregate(datadecision[-1], by=list(cluster=fit.km1$cluster), mean)
 
-ct.km1 <- table(datadecision$fico_group, fit.km1$cluster)
+ct.km1 <- table(datadecision$decision_status, fit.km1$cluster)
 ct.km1
+```
 
+```{r}
 library(flexclust)
 randIndex(ct.km1)
 # Exercise 6:
@@ -407,10 +656,19 @@ clusplot(df1, fit.km1$cluster, color = TRUE, shade = TRUE)
 fit.km1
 
 plot(datadecision[c("income", "number_of_trims_confirmed")], col = fit.km1$cluster)
-library(ggplot2)
-f <- ggplot(datadecision, aes(fico_group, number_of_models_selected), col = fit.km$cluster)
-f + geom_jitter(aes())
+```
 
+```{r}
+library(ggplot2)
+str(datadecision)
+```
+
+```{r}
+f <- ggplot(datadecision, aes(decision_status, income, col = factor(fit.km1$cluster)))
+f + geom_jitter()
+```
+
+```{r}
 # Wine
 
 # Hierarchical clustering:
@@ -426,8 +684,9 @@ groups <- cutree(H.fit, k=5)
 rect.hclust(H.fit, k=5, border="red")
 
 table(datadecision[,1],groups)
+```
 
-
+```{r}
 # Study case III: Social Network Clustering Analysis
 ficopeople = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/fico_people_clean.csv", header = TRUE)
 # Create the required subset
@@ -445,8 +704,10 @@ pie(colSums(datadecision[user_clusters$cluster==3,]),cex=0.5)
 pie(colSums(datadecision[user_clusters$cluster==4,]),cex=0.5)
 pie(colSums(datadecision[user_clusters$cluster==5,]),cex=0.5)
 user_clusters$centers
+```
 
 
+```{r}
 ficopeople_linear = read.csv("/Users/Mandar/Documents/datascience/springboard_ag_capstone/clustering/fico_people_clean.csv", header = TRUE)
 # Separate into training and test
 require(caTools)
@@ -491,3 +752,31 @@ write.csv(test_fico.ficogrp, file = "test_fico_ficogrp.csv")
 
 
 
+
+
+```
+
+
+
+
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
